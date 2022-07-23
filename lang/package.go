@@ -70,6 +70,7 @@ func NewPackageFromBuild(log logger.Logger, pkg *build.Package, opts ...PackageO
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(docPkg.Imports)
 
 	files, err := parsePkgFiles(pkg, cfg.FileSet)
 	if err != nil {
