@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/princjef/gomarkdoc/logger"
+	"github.com/lukeluocn/gomarkdoc/logger"
 )
 
 type (
