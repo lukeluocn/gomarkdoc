@@ -66,11 +66,60 @@ func NewPackageFromBuild(log logger.Logger, pkg *build.Package, opts ...PackageO
 		return nil, err
 	}
 
+	// Get interested prefixes from environment variables
+	impPre := make([]string, 0)
+	for _, env := range os.Environ() {
+		kv := strings.SplitN(env, "=", 2)
+		if kv[0] == "IMP_PRE" {
+			impPre = append(impPre, strings.Split(kv[1], ",")...)
+			break
+		}
+	}
+
+	// Collect interested imports
+	imps := make([]string, 0)
+	imps = append(imps, "vvv custom imports vvv")
+	for _, imp := range pkg.Imports {
+		for _, pre := range impPre {
+			if strings.HasPrefix(imp, pre) {
+				imps = append(imps, imp)
+				break
+			}
+		}
+	}
+
+	// cabinet is a special module involved in our project
+	cabWord := `([A-Z][a-z0-9]*)`
+	cabWords := fmt.Sprintf(`(%s+)`, cabWord)
+	cabMajor := `(V(\d+))`
+	cabMinor := `(U(\d+))`
+
+	cabMatchStr := fmt.Sprintf(`cabinet\.%s%s%s?`, cabWords, cabMajor, cabMinor)
+	cabMatch := regexp.MustCompile(cabMatchStr)
+
+	// Walk through all package sources to grab cabinet usage
+	cabs := make([]string, 0)
+	cabs = append(cabs, "vvv custom cabinet vvv")
+	cabParse := func(target string) error {
+		content, err := os.ReadFile(target)
+		if err != nil {
+			return err
+		}
+
+		matches := cabMatch.FindAllString(string(content), -1)
+		cabs = append(cabs, matches...)
+		return nil
+	}
+	for _, gf := range pkg.GoFiles {
+		if err := cabParse(path.Join(pkg.Dir, gf)); err != nil {
+			return nil, err
+		}
+	}
+
 	docPkg, err := getDocPkg(pkg, cfg.FileSet, options.includeUnexported)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(docPkg.Imports)
 
 	files, err := parsePkgFiles(pkg, cfg.FileSet)
 	if err != nil {
@@ -78,6 +127,14 @@ func NewPackageFromBuild(log logger.Logger, pkg *build.Package, opts ...PackageO
 	}
 
 	examples := doc.Examples(files...)
+
+	// Replace the unused imports
+	importsCustom := make([]string, 0)
+	imps = append(imps, "vvv custom imports vvv")
+	importsCustom = append(importsCustom, strings.Join(imps, "\n"))
+	cabs = append(cabs, "vvv custom cabinet vvv")
+	importsCustom = append(importsCustom, strings.Join(cabs, "\n"))
+	docPkg.Imports = importsCustom
 
 	return NewPackage(cfg, docPkg, examples), nil
 }
@@ -138,6 +195,11 @@ func (pkg *Package) Import() string {
 // local path and does not use Go Modules, this will typically print `.`.
 func (pkg *Package) ImportPath() string {
 	return pkg.doc.ImportPath
+}
+
+// Imports hooks in custom annotations.
+func (pkg *Package) Imports() []string {
+	return pkg.doc.Imports
 }
 
 // Summary provides the one-sentence summary of the package's documentation

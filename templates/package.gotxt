@@ -4,6 +4,10 @@
 	{{- header .Level .Name -}}
 {{- end -}}
 
+{{- range .Imports -}}
+	{{- paragraph . -}}
+{{- end -}}
+
 {{- template "import" . -}}
 
 {{- template "doc" .Doc -}}
