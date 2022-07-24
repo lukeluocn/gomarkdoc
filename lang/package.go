@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/lukeluocn/gomarkdoc/logger"
@@ -98,8 +99,7 @@ func NewPackageFromBuild(log logger.Logger, pkg *build.Package, opts ...PackageO
 	cabMatch := regexp.MustCompile(cabMatchStr)
 
 	// Walk through all package sources to grab cabinet usage
-	cabs := make([]string, 0)
-	cabs = append(cabs, "vvv custom cabinet vvv")
+	cabMap := make(map[string]bool)
 	cabParse := func(target string) error {
 		content, err := os.ReadFile(target)
 		if err != nil {
@@ -107,7 +107,9 @@ func NewPackageFromBuild(log logger.Logger, pkg *build.Package, opts ...PackageO
 		}
 
 		matches := cabMatch.FindAllString(string(content), -1)
-		cabs = append(cabs, matches...)
+		for _, match := range matches {
+			cabMap[match] = true
+		}
 		return nil
 	}
 	for _, gf := range pkg.GoFiles {
@@ -115,6 +117,12 @@ func NewPackageFromBuild(log logger.Logger, pkg *build.Package, opts ...PackageO
 			return nil, err
 		}
 	}
+	cabs := make([]string, 0)
+	for cab := range cabMap {
+		cabs = append(cabs, cab)
+	}
+	sort.Strings(cabs)
+	cabs = append([]string{"vvv custom cabinet vvv"}, cabs...)
 
 	docPkg, err := getDocPkg(pkg, cfg.FileSet, options.includeUnexported)
 	if err != nil {
